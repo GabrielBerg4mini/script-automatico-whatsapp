@@ -1,0 +1,41 @@
+{
+  "name": "Prospecção Limeira - Envio controlado",
+  "nodes": [
+    {
+      "parameters": {"rule": {"interval": [{"field": "cronExpression", "expression": "0 9-18 * * 1-5"}]}},
+      "id": "schedule",
+      "name": "Dias úteis 09-18h",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [-900, 0]
+    },
+    {
+      "parameters": {"operation": "read", "documentId": {"__rl": true, "mode": "id", "value": "={{$env.GOOGLE_SHEET_ID || 'CONFIGURE_GOOGLE_SHEET_ID'}}"}, "sheetName": {"__rl": true, "mode": "name", "value": "Limeira"}, "options": {}},
+      "id": "read-sheet",
+      "name": "Ler aba Limeira",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [-680, 0],
+      "credentials": {"googleSheetsOAuth2Api": {"id": "CONFIGURE_NO_N8N", "name": "Google Sheets account"}}
+    },
+    {
+      "parameters": {"jsCode": "const normalizar = (valor) => String(valor ?? '').normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLowerCase().trim();\nconst row = $input.first().json;\nconst empresa = String(row['Empresa / Negócio'] ?? '').trim();\nconst telefone = String(row['Telefone / WhatsApp'] ?? '').replace(/\\D/g, '');\nconst telefoneFinal = telefone.startsWith('55') ? telefone : `55${telefone}`;\nconst nicho = normalizar(row['Nicho / Categoria']);\nconst statusSite = normalizar(row['Status do Site Atual']);\nconst statusAbordagem = normalizar(row['Status da Abordagem']);\nconst nichosPermitidos = ['engenheiros', 'arquitetos', 'esteticas', 'clinicas', 'servicos juridicos'];\nconst statusSiteBloqueados = ['-', 'oferecer site novo', 'site fora do ar', 'oferecer site novo / site lento'];\nconst abordagensConcluidas = ['entrei em contato', 'nao quis continuar', 'aguardando resposta', 'inicio do projeto', 'testes', 'aprovado'];\nconst elegivel = nichosPermitidos.includes(nicho) && statusSite === 'sem site' && !statusSiteBloqueados.includes(statusSite) && (!statusAbordagem || statusAbordagem === '-') && telefoneFinal.length >= 12 && telefoneFinal.length <= 13;\nif (!elegivel || abordagensConcluidas.includes(statusAbordagem)) return [];\nconst mensagens = {\n  'servicos juridicos': `Boa tarde, ${empresa}! Tudo bem?\\n\\nEstava pesquisando por serviços jurídicos na região e vi que vocês têm uma reputação excelente, mas notei que ainda não possuem um site oficial cadastrado.\\n\\nNós da GB Softwares desenvolvemos páginas de alta performance para o setor de advocacia, e eu montei uma prévia visual da estrutura oficial do seu escritório, já aplicando a identidade e as cores de vocês.`,\n  esteticas: `Boa tarde, ${empresa}! Tudo bem?\\n\\nEstava pesquisando por clínicas de saúde / estética na região e vi que vocês têm uma reputação excelente, mas notei que ainda não possuem um site oficial cadastrado.\\n\\nNós da GB Softwares desenvolvemos páginas de alta performance para o setor de saúde / estética, e eu montei uma prévia visual da estrutura oficial da sua clínica, já aplicando a identidade e as cores de vocês.`,\n  clinicas: `Boa tarde, ${empresa}! Tudo bem?\\n\\nEstava pesquisando por clínicas de saúde / estética na região e vi que vocês têm uma reputação excelente, mas notei que ainda não possuem um site oficial cadastrado.\\n\\nNós da GB Softwares desenvolvemos páginas de alta performance para o setor de saúde / estética, e eu montei uma prévia visual da estrutura oficial da sua clínica, já aplicando a identidade e as cores de vocês.`,\n  arquitetos: `Boa tarde, ${empresa}! Tudo bem?\\n\\nEstava pesquisando por Arquitetos / Engenheiros na região e vi que vocês têm uma reputação excelente, mas notei que ainda não possuem um site oficial cadastrado.\\n\\nNós da GB Softwares desenvolvemos páginas de alta performance para o setor de arquitetura e engenharia, e eu montei uma prévia visual da estrutura oficial do seu escritório, já aplicando a identidade e as cores de vocês.`,\n  engenheiros: `Boa tarde, ${empresa}! Tudo bem?\\n\\nEstava pesquisando por Arquitetos / Engenheiros na região e vi que vocês têm uma reputação excelente, mas notei que ainda não possuem um site oficial cadastrado.\\n\\nNós da GB Softwares desenvolvemos páginas de alta performance para o setor de arquitetura e engenharia, e eu montei uma prévia visual da estrutura oficial do seu escritório, já aplicando a identidade e as cores de vocês.`\n};\nconst delayMs = Math.floor(Math.random() * 180001) + 120000;\nreturn [{ json: { ...row, telefoneNormalizado: telefoneFinal, mensagem: mensagens[nicho], delayMs, delaySeconds: Math.ceil(delayMs / 1000) } }];"},
+      "id": "prepare",
+      "name": "Filtrar e personalizar (1 contato)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-440, 0]
+    },
+    {"parameters": {"amount": "={{$json.delaySeconds}}", "unit": "seconds"}, "id": "wait", "name": "Aguardar 2-5 minutos", "type": "n8n-nodes-base.wait", "typeVersion": 1.1, "position": [-200, 0]},
+    {"parameters": {"method": "POST", "url": "={{'http://evolution-api:8080/message/sendText/' + ($env.EVOLUTION_INSTANCE || 'prospeccao')}}", "sendHeaders": true, "headerParameters": {"parameters": [{"name": "apikey", "value": "={{$env.EVOLUTION_API_KEY}}"}, {"name": "Content-Type", "value": "application/json"}]}, "sendBody": true, "specifyBody": "json", "jsonBody": "={{ { number: $json.telefoneNormalizado, text: $json.mensagem } }}", "options": {}}, "id": "send", "name": "Enviar pela Evolution API", "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [40, 0]},
+    {"parameters": {"amount": 5, "unit": "seconds"}, "id": "wait-follow-up", "name": "Aguardar 5 segundos", "type": "n8n-nodes-base.wait", "typeVersion": 1.1, "position": [260, 0]},
+    {"parameters": {"method": "POST", "url": "={{'http://evolution-api:8080/message/sendText/' + ($env.EVOLUTION_INSTANCE || 'prospeccao')}}", "sendHeaders": true, "headerParameters": {"parameters": [{"name": "apikey", "value": "={{$env.EVOLUTION_API_KEY}}"}, {"name": "Content-Type", "value": "application/json"}]}, "sendBody": true, "specifyBody": "json", "jsonBody": "={{ { number: $('Filtrar e personalizar (1 contato)').first().json.telefoneNormalizado, text: 'Posso te mandar um vídeo rápido de 30 segundos ou um link de demonstração para você ver como ficou?' } }}", "options": {}}, "id": "send-follow-up", "name": "Enviar mensagem de chamada", "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [480, 0]},
+    {"parameters": {"operation": "update", "documentId": {"__rl": true, "mode": "id", "value": "={{$env.GOOGLE_SHEET_ID}}"}, "sheetName": {"__rl": true, "mode": "name", "value": "Limeira"}, "columns": {"mappingMode": "defineBelow", "value": {"Telefone / WhatsApp": "={{$('Filtrar e personalizar (1 contato)').item.json['Telefone / WhatsApp']}}", "Status da Abordagem": "Entrei em contato", "Data do Contato": "={{$now.toFormat('dd/MM/yyyy')}}"}, "matchingColumns": ["Telefone / WhatsApp"]}, "options": {}}, "id": "update", "name": "Registrar contato", "type": "n8n-nodes-base.googleSheets", "typeVersion": 4.5, "position": [700, 0], "credentials": {"googleSheetsOAuth2Api": {"id": "CONFIGURE_NO_N8N", "name": "Google Sheets account"}}}
+  ],
+  "connections": {"Dias úteis 09-18h": {"main": [[{"node": "Ler aba Limeira", "type": "main", "index": 0}]]}, "Ler aba Limeira": {"main": [[{"node": "Filtrar e personalizar (1 contato)", "type": "main", "index": 0}]]}, "Filtrar e personalizar (1 contato)": {"main": [[{"node": "Aguardar 2-5 minutos", "type": "main", "index": 0}]]}, "Aguardar 2-5 minutos": {"main": [[{"node": "Enviar pela Evolution API", "type": "main", "index": 0}]]}, "Enviar pela Evolution API": {"main": [[{"node": "Aguardar 5 segundos", "type": "main", "index": 0}]]}, "Aguardar 5 segundos": {"main": [[{"node": "Enviar mensagem de chamada", "type": "main", "index": 0}]]}, "Enviar mensagem de chamada": {"main": [[{"node": "Registrar contato", "type": "main", "index": 0}]]}},
+  "active": false,
+  "settings": {"executionOrder": "v1"},
+  "versionId": "local-template-v2",
+  "meta": {"templateCredsSetupCompleted": false},
+  "tags": []
+}

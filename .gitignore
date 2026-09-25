@@ -1,0 +1,14 @@
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+node_modules/
+.n8n/
+data/
+volumes/
+credentials/
+service-account*.json
+google-credentials*.json
+*.pem
+*.key

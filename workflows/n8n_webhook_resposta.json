@@ -20,7 +20,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const data = $json.data ?? $json;\nconst key = data.key ?? {};\nif (key.fromMe === true) return [];\nconst raw = key.remoteJid ?? data.remoteJid ?? data.sender ?? '';\nconst telefone = String(raw).split('@')[0].replace(/\\D/g, '');\nconst texto = data.message?.conversation ?? data.message?.extendedTextMessage?.text ?? data.body ?? '';\nif (!telefone || telefone.length < 12) return [];\nreturn [{ json: { telefoneRecebido: telefone, texto: String(texto).slice(0, 500) } }];"
+        "jsCode": "const data = $json.body?.data ?? $json.data ?? $json;\nconst key = data.key ?? {};\nif (key.fromMe === true) return [];\nconst jid = String(key.remoteJid ?? data.remoteJid ?? '');\nconst raw = jid.endsWith('@lid') ? (key.remoteJidAlt ?? jid) : (jid || data.sender || '');\nconst telefone = String(raw).split('@')[0].replace(/\\D/g, '');\nconst texto = data.message?.conversation ?? data.message?.extendedTextMessage?.text ?? data.body ?? '';\nif (!telefone || telefone.length < 12) return [];\nreturn [{ json: { telefoneRecebido: telefone, texto: String(texto).slice(0, 500) } }];"
       },
       "id": "filter",
       "name": "Somente mensagens externas",

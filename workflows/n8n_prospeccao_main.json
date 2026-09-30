@@ -107,7 +107,8 @@
       "position": [
         40,
         0
-      ]
+      ],
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
@@ -207,6 +208,108 @@
           "name": "Google Sheets account"
         }
       }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "sem-whatsapp",
+              "leftValue": "={{ JSON.stringify($json).includes('exists') && JSON.stringify($json).includes('false') }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-sem-whatsapp",
+      "name": "Número sem WhatsApp?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        260,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{$env.GOOGLE_SHEET_ID}}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Limeira"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "row_number": "={{$('Filtrar e personalizar (1 contato)').item.json.row_number}}",
+            "Status da Abordagem": "Sem WhatsApp",
+            "Data do Contato": "={{$now.toFormat('dd/MM/yyyy')}}",
+            "Observações": "Número sem WhatsApp (verificado pela Evolution API)"
+          },
+          "matchingColumns": [
+            "row_number"
+          ],
+          "schema": [
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": false
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "mark-sem-whatsapp",
+      "name": "Marcar sem WhatsApp",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        480,
+        200
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "CONFIGURE_NO_N8N",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "errorMessage": "Falha no envio pela Evolution API (não foi 'número sem WhatsApp'). Verifique a instância e os logs."
+      },
+      "id": "stop-error",
+      "name": "Falha no envio",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        480,
+        300
+      ]
     }
   ],
   "connections": {
@@ -262,6 +365,13 @@
             "type": "main",
             "index": 0
           }
+        ],
+        [
+          {
+            "node": "Número sem WhatsApp?",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
@@ -281,6 +391,24 @@
         [
           {
             "node": "Registrar contato",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Número sem WhatsApp?": {
+      "main": [
+        [
+          {
+            "node": "Marcar sem WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Falha no envio",
             "type": "main",
             "index": 0
           }

@@ -1,5 +1,6 @@
 .env
 .env.*
+env.prod
 !.env.example
 *.log
 .DS_Store

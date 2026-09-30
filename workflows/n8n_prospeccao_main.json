@@ -27,21 +27,21 @@
         "documentId": {
           "__rl": true,
           "mode": "id",
-          "value": "={{$env.GOOGLE_SHEET_ID || 'CONFIGURE_GOOGLE_SHEET_ID'}}"
+          "value": "={{$env.GOOGLE_SHEET_ID}}"
         },
         "sheetName": {
           "__rl": true,
           "mode": "name",
-          "value": "Limeira"
+          "value": "Config"
         },
         "options": {}
       },
-      "id": "read-sheet",
-      "name": "Ler aba Limeira",
+      "id": "read-config",
+      "name": "Ler Config",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.5,
       "position": [
-        -680,
+        -700,
         0
       ],
       "credentials": {
@@ -53,14 +53,57 @@
     },
     {
       "parameters": {
-        "jsCode": "const normalizar = (valor) => String(valor ?? '').normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLowerCase().trim();\nconst nichosPermitidos = ['engenheiros', 'arquitetos', 'esteticas', 'clinicas', 'servicos juridicos'];\nconst statusSiteBloqueados = ['-', 'oferecer site novo', 'site fora do ar', 'oferecer site novo / site lento'];\nconst abordagensConcluidas = ['entrei em contato', 'nao quis continuar', 'aguardando resposta', 'inicio do projeto', 'testes', 'aprovado'];\nconst telefoneDe = (row) => {\n  const digitos = String(row['Telefone / WhatsApp'] ?? '').replace(/\\D/g, '');\n  return digitos.startsWith('55') ? digitos : `55${digitos}`;\n};\nconst elegivelRow = (row) => {\n  const telefoneFinal = telefoneDe(row);\n  const statusSite = normalizar(row['Status do Site Atual']);\n  const statusAbordagem = normalizar(row['Status da Abordagem']);\n  return nichosPermitidos.includes(normalizar(row['Nicho / Categoria']))\n    && statusSite === 'sem site'\n    && !statusSiteBloqueados.includes(statusSite)\n    && (!statusAbordagem || statusAbordagem === '-')\n    && !abordagensConcluidas.includes(statusAbordagem)\n    && telefoneFinal.length >= 12 && telefoneFinal.length <= 13;\n};\nconst escolhido = $input.all().find((item) => elegivelRow(item.json));\nif (!escolhido) return [];\nconst row = escolhido.json;\nconst empresa = String(row['Empresa / Negócio'] ?? '').trim();\nconst telefoneFinal = telefoneDe(row);\nconst nicho = normalizar(row['Nicho / Categoria']);\nconst hora = Number($now.setZone('America/Sao_Paulo').toFormat('H'));\nconst saudacao = hora < 12 ? 'Bom dia' : hora < 18 ? 'Boa tarde' : 'Boa noite';\nconst mensagens = {\n  'servicos juridicos': `${saudacao}, ${empresa}! Tudo bem?\\n\\nEstava pesquisando por serviços jurídicos na região e vi que vocês têm uma reputação excelente, mas notei que ainda não possuem um site oficial cadastrado.\\n\\nNós da GB Softwares desenvolvemos páginas de alta performance para o setor de advocacia, e eu montei uma prévia visual da estrutura oficial do seu escritório, já aplicando a identidade e as cores de vocês.`,\n  esteticas: `${saudacao}, ${empresa}! Tudo bem?\\n\\nEstava pesquisando por clínicas de saúde / estética na região e vi que vocês têm uma reputação excelente, mas notei que ainda não possuem um site oficial cadastrado.\\n\\nNós da GB Softwares desenvolvemos páginas de alta performance para o setor de saúde / estética, e eu montei uma prévia visual da estrutura oficial da sua clínica, já aplicando a identidade e as cores de vocês.`,\n  clinicas: `${saudacao}, ${empresa}! Tudo bem?\\n\\nEstava pesquisando por clínicas de saúde / estética na região e vi que vocês têm uma reputação excelente, mas notei que ainda não possuem um site oficial cadastrado.\\n\\nNós da GB Softwares desenvolvemos páginas de alta performance para o setor de saúde / estética, e eu montei uma prévia visual da estrutura oficial da sua clínica, já aplicando a identidade e as cores de vocês.`,\n  arquitetos: `${saudacao}, ${empresa}! Tudo bem?\\n\\nEstava pesquisando por Arquitetos / Engenheiros na região e vi que vocês têm uma reputação excelente, mas notei que ainda não possuem um site oficial cadastrado.\\n\\nNós da GB Softwares desenvolvemos páginas de alta performance para o setor de arquitetura e engenharia, e eu montei uma prévia visual da estrutura oficial do seu escritório, já aplicando a identidade e as cores de vocês.`,\n  engenheiros: `${saudacao}, ${empresa}! Tudo bem?\\n\\nEstava pesquisando por Arquitetos / Engenheiros na região e vi que vocês têm uma reputação excelente, mas notei que ainda não possuem um site oficial cadastrado.\\n\\nNós da GB Softwares desenvolvemos páginas de alta performance para o setor de arquitetura e engenharia, e eu montei uma prévia visual da estrutura oficial do seu escritório, já aplicando a identidade e as cores de vocês.`\n};\nconst delayMs = Math.floor(Math.random() * 180001) + 120000;\nreturn [{ json: { ...row, telefoneNormalizado: telefoneFinal, mensagem: mensagens[nicho], delayMs, delaySeconds: Math.ceil(delayMs / 1000) } }];"
+        "jsCode": "const norm = (v) => String(v ?? '').normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLowerCase().trim();\nconst campo = (obj, nome) => {\n  const chave = Object.keys(obj).find((k) => norm(k) === nome);\n  return chave === undefined ? undefined : obj[chave];\n};\nconst ativos = ['sim', 's', 'true', 'x', 'ativo', 'ativa', '1', 'yes'];\nconst saida = [];\n$input.all().forEach((item, idx) => {\n  const aba = String(campo(item.json, 'aba') ?? '').trim();\n  if (!aba || !ativos.includes(norm(campo(item.json, 'ativa')))) return;\n  const linha = parseInt(campo(item.json, 'linha inicial'), 10);\n  saida.push({ json: { aba, linhaInicial: Number.isFinite(linha) && linha > 0 ? linha : 4 }, pairedItem: { item: idx } });\n});\nreturn saida;"
+      },
+      "id": "abas-ativas",
+      "name": "Abas ativas",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -500,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{$env.GOOGLE_SHEET_ID || 'CONFIGURE_GOOGLE_SHEET_ID'}}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "={{$json.aba}}"
+        },
+        "options": {}
+      },
+      "id": "read-sheet",
+      "name": "Ler aba",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -300,
+        0
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "CONFIGURE_NO_N8N",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const normalizar = (valor) => String(valor ?? '').normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLowerCase().trim();\nconst nichosPermitidos = ['engenheiros', 'arquitetos', 'esteticas', 'clinicas', 'servicos juridicos'];\nconst statusSiteBloqueados = ['-', 'oferecer site novo', 'site fora do ar', 'oferecer site novo / site lento'];\nconst abordagensConcluidas = ['entrei em contato', 'nao quis continuar', 'aguardando resposta', 'inicio do projeto', 'testes', 'aprovado'];\nconst telefoneDe = (row) => {\n  const digitos = String(row['Telefone / WhatsApp'] ?? '').replace(/\\D/g, '');\n  return digitos.startsWith('55') ? digitos : `55${digitos}`;\n};\nconst elegivelRow = (row) => {\n  const telefoneFinal = telefoneDe(row);\n  const statusSite = normalizar(row['Status do Site Atual']);\n  const statusAbordagem = normalizar(row['Status da Abordagem']);\n  return nichosPermitidos.includes(normalizar(row['Nicho / Categoria']))\n    && statusSite === 'sem site'\n    && !statusSiteBloqueados.includes(statusSite)\n    && (!statusAbordagem || statusAbordagem === '-')\n    && !abordagensConcluidas.includes(statusAbordagem)\n    && telefoneFinal.length >= 12 && telefoneFinal.length <= 13;\n};\nconst todos = $input.all();\nconst indice = todos.findIndex((item, i) => Number(item.json.row_number) >= $('Abas ativas').itemMatching(i).json.linhaInicial && elegivelRow(item.json));\nif (indice < 0) return [];\nconst aba = $('Abas ativas').itemMatching(indice).json.aba;\nconst row = todos[indice].json;\nconst empresa = String(row['Empresa / Negócio'] ?? '').trim();\nconst telefoneFinal = telefoneDe(row);\nconst nicho = normalizar(row['Nicho / Categoria']);\nconst hora = Number($now.setZone('America/Sao_Paulo').toFormat('H'));\nconst saudacao = hora < 12 ? 'Bom dia' : hora < 18 ? 'Boa tarde' : 'Boa noite';\nconst mensagens = {\n  'servicos juridicos': `${saudacao}, ${empresa}! Tudo bem?\\n\\nEstava pesquisando por serviços jurídicos na região e vi que vocês têm uma reputação excelente, mas notei que ainda não possuem um site oficial cadastrado.\\n\\nNós da GB Softwares desenvolvemos páginas de alta performance para o setor de advocacia, e eu montei uma prévia visual da estrutura oficial do seu escritório, já aplicando a identidade e as cores de vocês.`,\n  esteticas: `${saudacao}, ${empresa}! Tudo bem?\\n\\nEstava pesquisando por clínicas de saúde / estética na região e vi que vocês têm uma reputação excelente, mas notei que ainda não possuem um site oficial cadastrado.\\n\\nNós da GB Softwares desenvolvemos páginas de alta performance para o setor de saúde / estética, e eu montei uma prévia visual da estrutura oficial da sua clínica, já aplicando a identidade e as cores de vocês.`,\n  clinicas: `${saudacao}, ${empresa}! Tudo bem?\\n\\nEstava pesquisando por clínicas de saúde / estética na região e vi que vocês têm uma reputação excelente, mas notei que ainda não possuem um site oficial cadastrado.\\n\\nNós da GB Softwares desenvolvemos páginas de alta performance para o setor de saúde / estética, e eu montei uma prévia visual da estrutura oficial da sua clínica, já aplicando a identidade e as cores de vocês.`,\n  arquitetos: `${saudacao}, ${empresa}! Tudo bem?\\n\\nEstava pesquisando por Arquitetos / Engenheiros na região e vi que vocês têm uma reputação excelente, mas notei que ainda não possuem um site oficial cadastrado.\\n\\nNós da GB Softwares desenvolvemos páginas de alta performance para o setor de arquitetura e engenharia, e eu montei uma prévia visual da estrutura oficial do seu escritório, já aplicando a identidade e as cores de vocês.`,\n  engenheiros: `${saudacao}, ${empresa}! Tudo bem?\\n\\nEstava pesquisando por Arquitetos / Engenheiros na região e vi que vocês têm uma reputação excelente, mas notei que ainda não possuem um site oficial cadastrado.\\n\\nNós da GB Softwares desenvolvemos páginas de alta performance para o setor de arquitetura e engenharia, e eu montei uma prévia visual da estrutura oficial do seu escritório, já aplicando a identidade e as cores de vocês.`\n};\nconst delayMs = Math.floor(Math.random() * 180001) + 120000;\nreturn [{ json: { ...row, aba, telefoneNormalizado: telefoneFinal, mensagem: mensagens[nicho], delayMs, delaySeconds: Math.ceil(delayMs / 1000) } }];"
       },
       "id": "prepare",
       "name": "Filtrar e personalizar (1 contato)",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -440,
+        -100,
         0
       ]
     },
@@ -74,7 +117,7 @@
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
       "position": [
-        -200,
+        100,
         0
       ]
     },
@@ -105,7 +148,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        40,
+        340,
         0
       ],
       "onError": "continueErrorOutput"
@@ -120,7 +163,7 @@
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
       "position": [
-        260,
+        560,
         0
       ]
     },
@@ -151,7 +194,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        480,
+        780,
         0
       ]
     },
@@ -166,7 +209,7 @@
         "sheetName": {
           "__rl": true,
           "mode": "name",
-          "value": "Limeira"
+          "value": "={{$('Filtrar e personalizar (1 contato)').item.json.aba}}"
         },
         "columns": {
           "mappingMode": "defineBelow",
@@ -199,7 +242,7 @@
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.5,
       "position": [
-        700,
+        1000,
         0
       ],
       "credentials": {
@@ -239,7 +282,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        260,
+        560,
         240
       ]
     },
@@ -254,7 +297,7 @@
         "sheetName": {
           "__rl": true,
           "mode": "name",
-          "value": "Limeira"
+          "value": "={{$('Filtrar e personalizar (1 contato)').item.json.aba}}"
         },
         "columns": {
           "mappingMode": "defineBelow",
@@ -288,7 +331,7 @@
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.5,
       "position": [
-        480,
+        780,
         200
       ],
       "credentials": {
@@ -307,34 +350,12 @@
       "type": "n8n-nodes-base.stopAndError",
       "typeVersion": 1,
       "position": [
-        480,
+        780,
         300
       ]
     }
   ],
   "connections": {
-    "Dias úteis 09-18h": {
-      "main": [
-        [
-          {
-            "node": "Ler aba Limeira",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Ler aba Limeira": {
-      "main": [
-        [
-          {
-            "node": "Filtrar e personalizar (1 contato)",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Filtrar e personalizar (1 contato)": {
       "main": [
         [
@@ -409,6 +430,50 @@
         [
           {
             "node": "Falha no envio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dias úteis 09-18h": {
+      "main": [
+        [
+          {
+            "node": "Ler Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ler Config": {
+      "main": [
+        [
+          {
+            "node": "Abas ativas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Abas ativas": {
+      "main": [
+        [
+          {
+            "node": "Ler aba",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ler aba": {
+      "main": [
+        [
+          {
+            "node": "Filtrar e personalizar (1 contato)",
             "type": "main",
             "index": 0
           }

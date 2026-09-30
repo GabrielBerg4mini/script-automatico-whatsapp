@@ -42,12 +42,12 @@
         "sheetName": {
           "__rl": true,
           "mode": "name",
-          "value": "Limeira"
+          "value": "Config"
         },
         "options": {}
       },
-      "id": "read-sheet",
-      "name": "Ler contatos Limeira",
+      "id": "read-config",
+      "name": "Ler Config",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.5,
       "position": [
@@ -63,14 +63,57 @@
     },
     {
       "parameters": {
-        "jsCode": "const normalizarTelefone = (valor) => {\n  const digits = String(valor ?? '').replace(/\\D/g, '');\n  return digits.startsWith('55') ? digits : `55${digits}`;\n};\nconst resposta = $('Somente mensagens externas').item.json;\nconst recebido = normalizarTelefone(resposta.telefoneRecebido);\nconst contato = $input.all().find((item) => normalizarTelefone(item.json['Telefone / WhatsApp']) === recebido);\nif (!contato) return [];\nreturn [{ json: { ...contato.json, telefonePlanilha: contato.json['Telefone / WhatsApp'], texto: resposta.texto } }];"
+        "jsCode": "const norm = (v) => String(v ?? '').normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLowerCase().trim();\nconst campo = (obj, nome) => {\n  const chave = Object.keys(obj).find((k) => norm(k) === nome);\n  return chave === undefined ? undefined : obj[chave];\n};\nconst ativos = ['sim', 's', 'true', 'x', 'ativo', 'ativa', '1', 'yes'];\nconst saida = [];\n$input.all().forEach((item, idx) => {\n  const aba = String(campo(item.json, 'aba') ?? '').trim();\n  if (!aba || !ativos.includes(norm(campo(item.json, 'ativa')))) return;\n  const linha = parseInt(campo(item.json, 'linha inicial'), 10);\n  saida.push({ json: { aba, linhaInicial: Number.isFinite(linha) && linha > 0 ? linha : 4 }, pairedItem: { item: idx } });\n});\nreturn saida;"
+      },
+      "id": "abas-ativas",
+      "name": "Abas ativas",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -320,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{$env.GOOGLE_SHEET_ID}}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "={{$json.aba}}"
+        },
+        "options": {}
+      },
+      "id": "read-sheet",
+      "name": "Ler aba",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -200,
+        0
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "CONFIGURE_NO_N8N",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const normalizarTelefone = (valor) => {\n  const digits = String(valor ?? '').replace(/\\D/g, '');\n  return digits.startsWith('55') ? digits : `55${digits}`;\n};\nconst resposta = $('Somente mensagens externas').first().json;\nconst recebido = normalizarTelefone(resposta.telefoneRecebido);\nconst todos = $input.all();\nconst indice = todos.findIndex((item) => normalizarTelefone(item.json['Telefone / WhatsApp']) === recebido);\nif (indice < 0) return [];\nconst aba = $('Abas ativas').itemMatching(indice).json.aba;\nconst contato = todos[indice].json;\nreturn [{ json: { ...contato, aba, telefonePlanilha: contato['Telefone / WhatsApp'], texto: resposta.texto } }];"
       },
       "id": "find-contact",
       "name": "Encontrar contato pelo telefone",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -200,
+        40,
         0
       ]
     },
@@ -85,7 +128,7 @@
         "sheetName": {
           "__rl": true,
           "mode": "name",
-          "value": "Limeira"
+          "value": "={{$json.aba}}"
         },
         "columns": {
           "mappingMode": "defineBelow",
@@ -118,7 +161,7 @@
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.5,
       "position": [
-        40,
+        280,
         0
       ],
       "credentials": {
@@ -145,18 +188,7 @@
       "main": [
         [
           {
-            "node": "Ler contatos Limeira",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Ler contatos Limeira": {
-      "main": [
-        [
-          {
-            "node": "Encontrar contato pelo telefone",
+            "node": "Ler Config",
             "type": "main",
             "index": 0
           }
@@ -168,6 +200,39 @@
         [
           {
             "node": "Marcar cliente respondeu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ler Config": {
+      "main": [
+        [
+          {
+            "node": "Abas ativas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Abas ativas": {
+      "main": [
+        [
+          {
+            "node": "Ler aba",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ler aba": {
+      "main": [
+        [
+          {
+            "node": "Encontrar contato pelo telefone",
             "type": "main",
             "index": 0
           }
